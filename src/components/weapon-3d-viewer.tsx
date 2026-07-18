@@ -97,8 +97,9 @@ function WeaponModel({ skin, albedoTex, maskTex, normalTex }: {
 
   const cloned = useMemo(() => {
     const c = scene.clone(true);
-    // Remove eholster and physics nodes (not weapon body)
-    const removeNames = ["eholster"];
+    // Remove eholster nodes and unused model version (legacy or HD)
+    const isLegacy = (skin as any).legacy_model === true;
+    const removeNames = ["eholster", isLegacy ? "body_hd" : "body_legacy"];
     const toRemove: THREE.Object3D[] = [];
     c.traverse((child) => {
       if (removeNames.some((n) => child.name.toLowerCase().includes(n))) {
@@ -163,16 +164,14 @@ function WeaponModel({ skin, albedoTex, maskTex, normalTex }: {
           mat.needsUpdate = true;
         }
         if (mat instanceof THREE.MeshStandardMaterial) {
-          if (albedoTex) mat.color.set("#ffffff");
-          if (maskTex) {
-            mat.roughnessMap = maskTex;
-            mat.metalnessMap = maskTex;
-            mat.roughness = 1;
-            mat.metalness = 1;
-            mat.needsUpdate = true;
+          if (albedoTex) {
+            mat.color.set("#ffffff");
+            mat.roughness = 0.5;
+            mat.metalness = 0.1;
           }
           if (normalTex) {
             mat.normalMap = normalTex;
+            mat.normalMapType = THREE.TangentSpaceNormalMap;
             mat.normalScale.set(1, 1);
             mat.needsUpdate = true;
           }
@@ -193,6 +192,9 @@ export function Weapon3DViewer({ skin }: Weapon3DViewerProps) {
   const [maskTex, setMaskTex] = useState<THREE.Texture | null>(null);
   const [normalTex, setNormalTex] = useState<THREE.Texture | null>(null);
   const [showPlaceholder, setShowPlaceholder] = useState(true);
+  const [wear, setWear] = useState(0);
+
+  const wearLabel = wear < 0.07 ? "FN" : wear < 0.15 ? "MW" : wear < 0.38 ? "FT" : wear < 0.45 ? "WW" : "BS";
 
   const loadTex = (path: string): Promise<THREE.Texture> => new Promise((resolve, reject) => {
     new THREE.TextureLoader().load(path,
@@ -249,6 +251,15 @@ export function Weapon3DViewer({ skin }: Weapon3DViewerProps) {
         {showPlaceholder && (
           <div className="text-[10px] text-yellow-400/80 mt-0.5">Texture not in library</div>
         )}
+      </div>
+      <div className="absolute bottom-4 right-4 pointer-events-auto flex items-center gap-2 bg-black/50 backdrop-blur rounded-lg px-3 py-2">
+        <span className="text-[10px] text-white/50">{wearLabel}</span>
+        <input
+          type="range" min={0} max={1} step={0.01} value={wear}
+          onChange={(e) => setWear(parseFloat(e.target.value))}
+          className="w-20 h-1 accent-white/60"
+        />
+        <span className="text-[10px] text-white/50 w-8 text-right">{wear.toFixed(2)}</span>
       </div>
     </div>
   );
